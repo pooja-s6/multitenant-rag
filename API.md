@@ -74,10 +74,25 @@ While the user table is empty, this call does not require a token. After that, o
 
 Passwords are stored as bcrypt hashes and are not returned.
 
+## Documents
+
+Every document route requires `Authorization: Bearer <access_token>`. The tenant is the token's tenant. A `tenant_id` sent with the upload is ignored.
+
+`POST /api/documents` accepts one multipart field named `file`. Allowed types are PDF (`.pdf`), UTF-8 text (`.txt`), and Markdown (`.md`, `.markdown`). The response is `201` with the document id, filename, content type, size, chunk count, and the stored chunks (index, page number, and text). Embeddings are not returned.
+
+Empty files, files with no extractable text, and unsupported types return `400`. Files larger than `MAX_UPLOAD_SIZE_MB` return `413`. A failed embedding does not leave a document or chunk row.
+
+`GET /api/documents` lists the caller's tenant only.
+
+`GET /api/documents/{document_id}` returns one document and its chunks. Another tenant's id returns `404`.
+
+`DELETE /api/documents/{document_id}` returns `204` for the caller's document and `404` for any other id.
+
+These routes do not search vectors or call a language model.
+
 ## Not implemented yet
 
 These routes exist and return `501`:
 
-- `GET` and `POST /api/documents`
 - `POST /api/rag/query`
 - `GET /api/dashboard/summary`

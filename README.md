@@ -6,7 +6,7 @@ The design contract is [ARCHITECTURE.md](ARCHITECTURE.md). The build order is [P
 
 ## Current status
 
-Phase 2 is in place: project layout, Docker Compose, health checks, tenants, users, and JWT authentication. Document ingestion, retrieval, RAG, caching, routing, and dashboard metrics are specified and not built yet. Those routes respond with HTTP 501 until their phase lands.
+Phase 3 is in place: project layout, Docker Compose, health checks, tenants, users, JWT authentication, and document ingestion. Retrieval, RAG, caching, routing, and dashboard metrics are specified and not built yet. Those routes respond with HTTP 501 until their phase lands.
 
 ## Architecture
 
@@ -24,7 +24,7 @@ Every authenticated call resolves `user_id`, `tenant_id`, and `role` from a JWT 
 | --- | --- | --- |
 | Health checks | Live and ready endpoints | — |
 | Auth and tenants | JWT login, bcrypt passwords, tenant CRUD, roles | Document permissions at retrieval time |
-| Documents | Routes reserved | PDF, TXT, Markdown ingestion |
+| Documents | PDF, TXT, and Markdown upload, chunking, and embeddings | Permission-aware retrieval |
 | RAG chat | Page shell | Answers, citations, model, cache flag |
 | Semantic cache | — | Redis similarity lookup scoped by tenant and permissions |
 | Model routing | Settings only | Small model for simple queries, large model for complex ones |
@@ -48,6 +48,9 @@ Change `JWT_SECRET` before any shared deployment. Leave `LLM_API_KEY` empty to k
 | `REDIS_URL` | Redis connection URL |
 | `JWT_SECRET` | Signing key for access tokens |
 | `EMBEDDING_MODEL` | Sentence-transformers model name |
+| `EMBEDDING_DIMENSION` | Vector width. `384` for the default model |
+| `CHUNK_SIZE` / `CHUNK_OVERLAP` | Character window and overlap. Defaults `800` and `100` |
+| `MAX_UPLOAD_SIZE_MB` | Largest accepted upload. Default `10` |
 | `LLM_PROVIDER` | Provider id (`openai` or the later fake provider) |
 | `SMALL_MODEL` / `LARGE_MODEL` | Routed model names |
 | `CACHE_SIMILARITY_THRESHOLD` | Minimum cosine similarity for a cache hit |
@@ -114,7 +117,9 @@ Request and response details are in [API.md](API.md).
 | `GET` | `/api/tenants` | Returns only the caller's tenant |
 | `GET`, `PATCH`, `DELETE` | `/api/tenants/{tenant_id}` | Own tenant only. Other tenants respond as not found |
 | `GET`, `POST` | `/api/users` | Users in the caller's tenant |
-| `GET`, `POST` | `/api/documents` | `501` |
+| `POST` | `/api/documents` | Upload a PDF, TXT, or Markdown file for the caller's tenant |
+| `GET` | `/api/documents` | List the caller's documents |
+| `GET`, `DELETE` | `/api/documents/{document_id}` | Read or delete one document. Other tenants get `404` |
 | `POST` | `/api/rag/query` | `501` |
 | `GET` | `/api/dashboard/summary` | `501` |
 
@@ -132,7 +137,7 @@ pytest
 
 The suite expects the Compose Postgres at `localhost:5432` (user `rag`, password `rag`). It creates a `rag_test` database and runs migrations there. Set `TEST_DATABASE_URL` if that server is elsewhere. On this workstation, run pytest inside Ubuntu WSL so it reaches the Compose database rather than another Postgres on the Windows host.
 
-Auth tests cover login, invalid credentials, expired and tampered tokens, protected routes, role checks, and tenant isolation. Permission filters, cache boundaries, routing, and cost tests arrive with those phases.
+Auth tests cover login, invalid credentials, expired and tampered tokens, protected routes, role checks, and tenant isolation. Document tests upload the fictional files in `data/sample_documents/` and check extraction, chunking, embedding width, persistence, and tenant isolation. Permission filters, cache boundaries, routing, and cost tests arrive with those phases.
 
 Frontend production bundle:
 
@@ -147,11 +152,11 @@ An evaluation set and the four-way comparison (plain RAG, cache, routing, cache 
 
 ## Limitations
 
-- The React login page does not store the token yet. Sign-in works through the API.
-- Uploads, retrieval, and questions are not functional.
-- Embeddings and LLM calls are not installed in the image.
+- The React login page does not store the token yet. Sign-in and uploads work through the API.
+- Retrieval and questions are not functional.
+- The API image installs the embedding model libraries. The model file is downloaded on the first upload.
 - Readiness depends on the configured Postgres and Redis endpoints.
 
 ## Further work
 
-Phases 3 through 10 in `PROJECT_PLAN.md`: ingestion, permission-aware retrieval, the RAG pipeline, semantic caching, cost-aware routing, metrics, the interactive UI, and evaluation.
+Phases 4 through 10 in `PROJECT_PLAN.md`: permission-aware retrieval, the RAG pipeline, semantic caching, cost-aware routing, metrics, the interactive UI, and evaluation.

@@ -8,7 +8,7 @@ Implementation follows the architecture in `ARCHITECTURE.md`. Each phase ends wi
 | --- | --- | --- |
 | 1 | Structure, configuration, Docker, health skeleton | Complete |
 | 2 | Database, authentication, tenants | Complete |
-| 3 | Document ingestion and embeddings | Not started |
+| 3 | Document ingestion and embeddings | Complete |
 | 4 | Vector retrieval and permission filtering | Not started |
 | 5 | RAG pipeline | Not started |
 | 6 | Semantic caching | Not started |
@@ -65,11 +65,13 @@ Deliver:
 
 - PDF, TXT, and Markdown extraction, cleaning, and chunking
 - sentence-transformers embeddings behind a small embedder interface
-- document, permission, and chunk persistence
-- upload API with role gate (`ADMIN` and `MANAGER` can upload; `USER` cannot)
+- document and chunk persistence
+- upload API for any authenticated user in the tenant
 - tests with fixture files and a fake embedder so the suite does not download models
 
-Exit criteria: a stored chunk carries tenant id, document id, filename, page when available, and access metadata.
+Delivered: `documents` and `document_chunks` tables, Alembic revision `0002_documents_chunks`, and `POST`, `GET`, and `DELETE /api/documents`. The tenant comes from the JWT. Chunks store `tenant_id`, `document_id`, filename metadata, a page number for PDFs, and a 384-dimension vector. Fictional sample files live in `data/sample_documents/` and are uploaded through the same API as any other file. Document permissions and access metadata are Phase 4.
+
+Exit criteria: a stored chunk carries tenant id, document id, filename, and page when available. Access metadata arrives with permission-aware retrieval.
 
 ## Phase 4 — Retrieval and permissions
 

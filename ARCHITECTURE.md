@@ -140,7 +140,9 @@ Chunk metadata stored with the vector:
 - page number when the extractor provides one
 - access information copied from the document permission so retrieval can filter without a late join surprise
 
-The embedding model and dimension are configured (`EMBEDDING_MODEL`, `EMBEDDING_DIMENSION`). The default model is `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions). Changing the model requires a matching dimension and a re-embed of stored chunks.
+The embedding model and dimension are configured (`EMBEDDING_MODEL`, `EMBEDDING_DIMENSION`). The default model is `sentence-transformers/all-MiniLM-L6-v2` (384 dimensions). The `document_chunks.embedding` column is that width. A model or setting that does not match 384 is rejected before any row is written. Changing the model later requires a matching dimension and a re-embed of stored chunks.
+
+Phase 3 stores `tenant_id`, `document_id`, filename, page number for PDFs, and the vector. Access information is still added in Phase 4, when retrieval starts filtering by role.
 
 ## Retrieval
 
@@ -297,4 +299,4 @@ Phase 1 is infrastructure and a walking skeleton:
 - React shell with login, upload, chat, and dashboard routes
 - Docker Compose for frontend, backend, Postgres with the `vector` extension created on first database init, and Redis
 
-Authentication, ingestion, retrieval, RAG, caching, routing, metrics, and evaluation are specified here and implemented in the phases that follow.
+Authentication and document ingestion are implemented. Retrieval, RAG, caching, routing, metrics, and evaluation are specified here and implemented in the phases that follow. `documents` and `document_chunks` exist from Alembic revision `0002_documents_chunks`. `document_permissions` and `query_logs` are still planned.

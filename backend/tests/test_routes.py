@@ -4,8 +4,6 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 PLACEHOLDER_ROUTES = [
-    ("get", "/api/documents"),
-    ("post", "/api/documents"),
     ("post", "/api/rag/query"),
     ("get", "/api/dashboard/summary"),
 ]

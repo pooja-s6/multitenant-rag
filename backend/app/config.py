@@ -1,8 +1,10 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.vector_dimensions import DEFAULT_EMBEDDING_MODEL, EMBEDDING_VECTOR_DIMENSION
 
 DEV_JWT_SECRET = "dev-only-change-me"
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -27,8 +29,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
-    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
-    embedding_dimension: int = 384
+    embedding_model: str = DEFAULT_EMBEDDING_MODEL
+    embedding_dimension: int = EMBEDDING_VECTOR_DIMENSION
+    chunk_size: int = 800
+    chunk_overlap: int = 100
+    max_upload_size_mb: int = 10
 
     llm_provider: str = "openai"
     llm_api_key: str = ""
@@ -61,12 +66,25 @@ class Settings(BaseSettings):
             raise ValueError("threshold must be between 0 and 1")
         return value
 
-    @field_validator("embedding_dimension", "retrieval_top_k", "cache_ttl", "access_token_expire_minutes")
+    @field_validator(
+        "embedding_dimension",
+        "retrieval_top_k",
+        "cache_ttl",
+        "access_token_expire_minutes",
+        "chunk_size",
+        "max_upload_size_mb",
+    )
     @classmethod
     def positive_int(cls, value: int) -> int:
         if value <= 0:
             raise ValueError("value must be positive")
         return value
+
+    @model_validator(mode="after")
+    def overlap_is_smaller_than_chunk(self) -> "Settings":
+        if self.chunk_overlap < 0 or self.chunk_overlap >= self.chunk_size:
+            raise ValueError("CHUNK_OVERLAP must be zero or greater and smaller than CHUNK_SIZE")
+        return self
 
     @property
     def cors_origin_list(self) -> list[str]:

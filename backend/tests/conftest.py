@@ -45,7 +45,7 @@ def _upgrade() -> None:
 
 def _truncate() -> None:
     with engine.begin() as connection:
-        connection.execute(text("TRUNCATE TABLE users, tenants CASCADE"))
+        connection.execute(text("TRUNCATE TABLE document_chunks, documents, users, tenants CASCADE"))
 
 
 @pytest.fixture(scope="session", autouse=True)

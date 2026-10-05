@@ -1,1 +1,1 @@
-"""Document extraction, chunking, and embedding. Implemented in phase 3."""
+"""Extract, clean, chunk, embed, and store tenant documents."""

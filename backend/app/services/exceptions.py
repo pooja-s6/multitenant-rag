@@ -18,3 +18,15 @@ class NotFound(AppError):
 
 class Conflict(AppError):
     pass
+
+
+class BadRequest(AppError):
+    pass
+
+
+class PayloadTooLarge(AppError):
+    pass
+
+
+class IngestionError(AppError):
+    pass
