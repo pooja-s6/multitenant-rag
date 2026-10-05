@@ -1,0 +1,158 @@
+# Project plan
+
+Implementation follows the architecture in `ARCHITECTURE.md`. Each phase ends with its tests passing before the next phase starts.
+
+## Current status
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| 1 | Structure, configuration, Docker, health skeleton | Complete |
+| 2 | Database, authentication, tenants | Complete |
+| 3 | Document ingestion and embeddings | Not started |
+| 4 | Vector retrieval and permission filtering | Not started |
+| 5 | RAG pipeline | Not started |
+| 6 | Semantic caching | Not started |
+| 7 | Cost-aware model routing | Not started |
+| 8 | Observability and analytics | Not started |
+| 9 | React dashboard and chat UI | Not started |
+| 10 | Evaluation, security tests, Docker validation, docs | Not started |
+
+## Working agreements
+
+- Tenant id and role used for authorization come from the JWT.
+- A failing test is fixed before the next phase begins.
+- Secrets stay in the environment. `.env` is never committed.
+- LLM calls go through a provider interface. Tests use a fake provider.
+- New behavior ships with pytest coverage for the security invariants it touches.
+
+## Phase 1 — Structure and infrastructure
+
+Deliver:
+
+- `ARCHITECTURE.md`, `PROJECT_PLAN.md`, and a README that describes how to run the skeleton
+- backend package layout, settings, logging, Alembic environment, health API
+- placeholder routers so the URL map is stable
+- React + TypeScript + Vite + Tailwind shell with four routes
+- `docker-compose.yml`, Dockerfiles, `.env.example`, Postgres init for `vector`
+
+Exit criteria:
+
+- `pytest` passes in `backend/`
+- `npm run build` passes in `frontend/`
+- `docker compose config` succeeds
+- `GET /api/health/live` returns 200 from the backend container after `docker compose up --build`
+
+Out of scope: user tables, login, uploads, embeddings, retrieval, RAG, cache, routing, dashboard metrics, evaluation results.
+
+## Phase 2 — Database, authentication, tenants
+
+Deliver:
+
+- SQLAlchemy models and the initial Alembic migration for `tenants` and `users`
+- bcrypt password hashing and JWT issue/verify
+- `POST /api/auth/login` and `GET /api/auth/me`
+- tenant creation restricted to `ADMIN`
+- dependency that yields `user_id`, `tenant_id`, and `role`
+- tests for login, password rejection, and role checks
+
+Delivered: `tenants` and `users` tables, Alembic revision `0001_tenants_users`, bcrypt hashes, JWT login and `/api/auth/me`, tenant CRUD scoped to the caller's tenant, and user create/list. The first tenant can be created only while the user table is empty. After that, only an `ADMIN` can create tenants or users. A token is accepted only when its `tenant_id` matches the user row, and the role is read from the database.
+
+Exit criteria: an authenticated request resolves the three identity fields, and a token from tenant A cannot be treated as tenant B.
+
+## Phase 3 — Ingestion and embeddings
+
+Deliver:
+
+- PDF, TXT, and Markdown extraction, cleaning, and chunking
+- sentence-transformers embeddings behind a small embedder interface
+- document, permission, and chunk persistence
+- upload API with role gate (`ADMIN` and `MANAGER` can upload; `USER` cannot)
+- tests with fixture files and a fake embedder so the suite does not download models
+
+Exit criteria: a stored chunk carries tenant id, document id, filename, page when available, and access metadata.
+
+## Phase 4 — Retrieval and permissions
+
+Deliver:
+
+- pgvector similarity search
+- SQL filters for tenant, access level, allowed roles, and department
+- configurable `top_k` and similarity threshold
+- tests that tenant B rows and unauthorized private rows are absent even when their vectors are nearest
+
+Exit criteria: the retrieval service returns only chunks the caller is allowed to read.
+
+## Phase 5 — RAG pipeline
+
+Deliver:
+
+- preprocessing, retrieval, ranking, prompt construction, provider call, citations
+- fake LLM provider plus an OpenAI-compatible provider selected by `LLM_PROVIDER`
+- `POST /api/rag/query` response contract from the architecture
+- query log write for each request
+
+Exit criteria: the endpoint returns an answer, sources, model, cache flag, latency, and request id. With an empty cache, `cache_hit` is false.
+
+## Phase 6 — Semantic cache
+
+Deliver:
+
+- Redis entry format and cosine lookup described in the architecture
+- tenant prefix and permission-context hash on every read and write
+- hit, miss, cost-saved, and latency-saved counters
+- tests for hit, miss, cross-tenant rejection, and cross-permission rejection
+
+Exit criteria: a cached answer is reused only for the same tenant and permission context.
+
+## Phase 7 — Routing and cost
+
+Deliver:
+
+- complexity score and threshold from settings
+- pricing table from environment variables
+- per-request token and cost record
+- tests for small-model routing, large-model routing, and cost arithmetic
+
+Exit criteria: simple and complex queries select different models, and cost changes when prices change without code edits.
+
+## Phase 8 — Observability and analytics
+
+Deliver:
+
+- JSON logs for RAG requests with the required fields
+- dashboard service for the metrics listed in the architecture
+- `GET /api/dashboard/summary` scoped so a non-admin sees their tenant, and an admin can see tenant breakdown for their own tenant unless a later product rule adds a platform admin
+
+Exit criteria: metrics match rows in `query_logs` for a fixture set, including cache hit rate, average latency, and P95.
+
+## Phase 9 — Dashboard and chat UI
+
+Deliver:
+
+- working login, upload, chat, and dashboard pages against the API
+- chat shows citations, cache hit, and model used
+- dashboard shows the Phase 8 metrics and recent queries
+
+Exit criteria: a user can log in, upload an allowed file, ask a question, and see the RAG response fields in the browser.
+
+## Phase 10 — Evaluation, hardening, documentation
+
+Deliver:
+
+- evaluation set of realistic questions
+- comparison of plain RAG, RAG plus cache, RAG plus routing, and RAG plus both
+- `API.md`, `SECURITY.md`, `EVALUATION.md`, and a README that includes measured results from that run
+- Docker Compose smoke test of health, login, and a RAG call with the fake provider
+- the security tests listed in the product requirements, kept green
+
+Exit criteria: documentation matches the running system, and the security tests pass.
+
+## Risks
+
+| Risk | Mitigation |
+| --- | --- |
+| Embedding model download makes tests slow and brittle | Fake embedder in unit tests; real model only in an optional integration path |
+| pgvector filter + index returns unauthorized neighbors | Tenant and permission predicates are in the SQL, with tests that would fail if they were dropped |
+| Semantic cache leaks across tenants | Key prefix plus an explicit tenant check before a hit is returned |
+| Local Python is newer than the Docker image | Application code targets 3.11. Docker uses 3.11. Tests also run on the developer interpreter |
+| Provider cost math drifts | Prices stay in configuration and have direct unit tests |

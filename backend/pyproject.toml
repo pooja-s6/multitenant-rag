@@ -1,0 +1,9 @@
+[project]
+name = "multitenant-rag"
+version = "0.1.0"
+description = "Multi-tenant RAG platform with semantic caching and cost-aware model routing"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
