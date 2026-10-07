@@ -299,4 +299,4 @@ Phase 1 is infrastructure and a walking skeleton:
 - React shell with login, upload, chat, and dashboard routes
 - Docker Compose for frontend, backend, Postgres with the `vector` extension created on first database init, and Redis
 
-Authentication, document ingestion, and permission-aware retrieval are implemented. RAG, caching, routing, metrics, and evaluation are specified here and implemented in the phases that follow. `documents`, `document_chunks`, and `document_permissions` exist through Alembic revision `0003_document_permissions`. `query_logs` is still planned.
+Authentication, document ingestion, permission-aware retrieval, and the RAG query endpoint are implemented. Caching, routing, metrics, and evaluation are specified here and implemented in the phases that follow. `query_logs` exists from Alembic revision `0004_query_logs`. Semantic cache writes are not done yet, so `cache_hit` is false.

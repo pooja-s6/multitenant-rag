@@ -30,3 +30,7 @@ class PayloadTooLarge(AppError):
 
 class IngestionError(AppError):
     pass
+
+
+class BadGateway(AppError):
+    pass

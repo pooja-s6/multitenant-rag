@@ -1,1 +1,1 @@
-"""RAG orchestration. Implemented in phase 5."""
+"""Question answering over permission-filtered chunks."""

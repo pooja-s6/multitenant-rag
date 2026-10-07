@@ -9,7 +9,16 @@ from starlette.responses import Response
 
 from app.api.router import api_router
 from app.config import get_settings
-from app.services.exceptions import BadRequest, Conflict, Forbidden, IngestionError, NotFound, PayloadTooLarge, Unauthorized
+from app.services.exceptions import (
+    BadGateway,
+    BadRequest,
+    Conflict,
+    Forbidden,
+    IngestionError,
+    NotFound,
+    PayloadTooLarge,
+    Unauthorized,
+)
 from app.utils.logging import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -74,6 +83,10 @@ def create_app() -> FastAPI:
     @app.exception_handler(IngestionError)
     async def ingestion_error_handler(_: Request, exc: IngestionError) -> JSONResponse:
         return JSONResponse(status_code=500, content={"detail": exc.detail})
+
+    @app.exception_handler(BadGateway)
+    async def bad_gateway_handler(_: Request, exc: BadGateway) -> JSONResponse:
+        return JSONResponse(status_code=502, content={"detail": exc.detail})
 
     app.include_router(api_router, prefix="/api")
     logger.info("application started environment=%s", settings.environment)

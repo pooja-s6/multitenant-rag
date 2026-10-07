@@ -100,9 +100,23 @@ The tenant comes from the token. Results are chunks from that tenant that the ca
 
 The response is `{ "chunks": [ ... ] }`. Each chunk has `chunk_id`, `document_id`, `filename`, `content`, `page_number`, `access_level`, `department`, and `score`. Embeddings are not returned. An empty list means nothing allowed was similar enough. Another tenant's chunks are never included.
 
+## Questions
+
+`POST /api/rag/query` requires a bearer token. The body has `query` and may include the same narrowing fields as search: `top_k`, `similarity_threshold`, `department`, and `access_level`.
+
+The handler retrieves allowed chunks, ranks them by similarity, and asks the language-model provider. `LLM_PROVIDER=openai` with `LLM_API_KEY` set calls `LLM_BASE_URL` using `SMALL_MODEL`. An empty key uses the local fake provider, which answers from the retrieved excerpt. The response has:
+
+- `answer`
+- `sources` (document id, chunk id, filename, page number, score, excerpt)
+- `model_used`
+- `cache_hit` (always `false` until semantic caching)
+- `latency` (milliseconds)
+- `request_id`
+
+A completed query is stored in `query_logs` for that tenant, including token counts and an estimated cost from the small-model prices. Private documents and other tenants' documents are not retrieved, so they do not appear in the answer or the sources.
+
 ## Not implemented yet
 
-These routes exist and return `501`:
+This route exists and returns `501`:
 
-- `POST /api/rag/query`
 - `GET /api/dashboard/summary`

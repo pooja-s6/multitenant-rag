@@ -10,7 +10,7 @@ Implementation follows the architecture in `ARCHITECTURE.md`. Each phase ends wi
 | 2 | Database, authentication, tenants | Complete |
 | 3 | Document ingestion and embeddings | Complete |
 | 4 | Vector retrieval and permission filtering | Complete |
-| 5 | RAG pipeline | Not started |
+| 5 | RAG pipeline | Complete |
 | 6 | Semantic caching | Not started |
 | 7 | Cost-aware model routing | Not started |
 | 8 | Observability and analytics | Not started |
@@ -94,6 +94,8 @@ Deliver:
 - fake LLM provider plus an OpenAI-compatible provider selected by `LLM_PROVIDER`
 - `POST /api/rag/query` response contract from the architecture
 - query log write for each request
+
+Delivered: `POST /api/rag/query` and Alembic revision `0004_query_logs`. The handler preprocesses the question, retrieves only chunks the caller may read, ranks them by similarity, builds a prompt, and calls a provider. `LLM_PROVIDER=openai` with an API key uses the OpenAI-compatible chat endpoint and `SMALL_MODEL`. An empty key, or `LLM_PROVIDER=fake`, uses a local provider that answers from the retrieved text. Every completed query is stored in `query_logs` with model, token counts, estimated small-model cost, latency, and sources. `cache_hit` is false. Semantic cache and complexity routing are later phases.
 
 Exit criteria: the endpoint returns an answer, sources, model, cache flag, latency, and request id. With an empty cache, `cache_hit` is false.
 

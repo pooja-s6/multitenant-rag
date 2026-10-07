@@ -46,7 +46,9 @@ def _upgrade() -> None:
 def _truncate() -> None:
     with engine.begin() as connection:
         connection.execute(
-            text("TRUNCATE TABLE document_chunks, document_permissions, documents, users, tenants CASCADE")
+            text(
+                "TRUNCATE TABLE query_logs, document_chunks, document_permissions, documents, users, tenants CASCADE"
+            )
         )
 
 
