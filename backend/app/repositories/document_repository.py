@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.document import Document, DocumentChunk
+from app.models.permission import DocumentPermission
 
 
 def add(db: Session, document: Document) -> Document:
@@ -11,9 +12,18 @@ def add(db: Session, document: Document) -> Document:
     return document
 
 
+def add_permission(db: Session, permission: DocumentPermission) -> DocumentPermission:
+    db.add(permission)
+    return permission
+
+
 def add_chunk(db: Session, chunk: DocumentChunk) -> DocumentChunk:
     db.add(chunk)
     return chunk
+
+
+def get_permission(db: Session, document_id: uuid.UUID) -> DocumentPermission | None:
+    return db.scalar(select(DocumentPermission).where(DocumentPermission.document_id == document_id))
 
 
 def get_for_tenant(db: Session, document_id: uuid.UUID, tenant_id: uuid.UUID) -> Document | None:

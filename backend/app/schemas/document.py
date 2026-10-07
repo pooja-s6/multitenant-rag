@@ -11,6 +11,12 @@ class ChunkResponse(BaseModel):
     content: str
 
 
+class DocumentPermissionResponse(BaseModel):
+    access_level: str
+    department: str | None
+    allowed_roles: list[str]
+
+
 class DocumentSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -26,4 +32,5 @@ class DocumentSummary(BaseModel):
 
 
 class DocumentDetail(DocumentSummary):
+    permission: DocumentPermissionResponse
     chunks: list[ChunkResponse]

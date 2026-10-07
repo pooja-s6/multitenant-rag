@@ -78,7 +78,7 @@ Passwords are stored as bcrypt hashes and are not returned.
 
 Every document route requires `Authorization: Bearer <access_token>`. The tenant is the token's tenant. A `tenant_id` sent with the upload is ignored.
 
-`POST /api/documents` accepts one multipart field named `file`. Allowed types are PDF (`.pdf`), UTF-8 text (`.txt`), and Markdown (`.md`, `.markdown`). The response is `201` with the document id, filename, content type, size, chunk count, and the stored chunks (index, page number, and text). Embeddings are not returned.
+`POST /api/documents` accepts one multipart field named `file`, plus optional `access_level` (`public`, `internal`, or `private`), `department`, and `allowed_roles` (comma-separated roles, used when the level is `private`). The default level is `internal`, which `MANAGER` and `ADMIN` can retrieve. Allowed types are PDF (`.pdf`), UTF-8 text (`.txt`), and Markdown (`.md`, `.markdown`). The response is `201` with the document id, filename, content type, size, chunk count, stored permission, and the stored chunks (index, page number, and text). Embeddings are not returned.
 
 Empty files, files with no extractable text, and unsupported types return `400`. Files larger than `MAX_UPLOAD_SIZE_MB` return `413`. A failed embedding does not leave a document or chunk row.
 
@@ -88,7 +88,17 @@ Empty files, files with no extractable text, and unsupported types return `400`.
 
 `DELETE /api/documents/{document_id}` returns `204` for the caller's document and `404` for any other id.
 
-These routes do not search vectors or call a language model.
+These routes do not call a language model.
+
+## Retrieval
+
+`POST /api/retrieval/search` requires a bearer token. The body has `query` and may include `top_k`, `similarity_threshold`, `department`, and `access_level`.
+
+The tenant comes from the token. Results are chunks from that tenant that the caller's role and department are allowed to read, ordered by cosine similarity. Rows below `RETRIEVAL_SIMILARITY_THRESHOLD` are omitted. `top_k` cannot exceed `RETRIEVAL_TOP_K`, and `similarity_threshold` cannot go below the configured threshold. `department` and `access_level`, when sent, only remove additional rows.
+
+`ADMIN` can read every document in the tenant, including other departments. `public` documents are readable by every authenticated user in the tenant. `internal` documents are readable by `MANAGER` and `ADMIN`. `private` documents are readable by the listed roles, and by `ADMIN`. A department on the document must match the caller unless the caller is an `ADMIN`.
+
+The response is `{ "chunks": [ ... ] }`. Each chunk has `chunk_id`, `document_id`, `filename`, `content`, `page_number`, `access_level`, `department`, and `score`. Embeddings are not returned. An empty list means nothing allowed was similar enough. Another tenant's chunks are never included.
 
 ## Not implemented yet
 

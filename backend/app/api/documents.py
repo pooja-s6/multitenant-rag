@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -18,6 +18,9 @@ router = APIRouter(prefix="/documents", tags=["documents"])
 @router.post("", response_model=DocumentDetail, status_code=status.HTTP_201_CREATED)
 def upload_document(
     file: UploadFile = File(...),
+    access_level: str | None = Form(default=None),
+    department: str | None = Form(default=None),
+    allowed_roles: str | None = Form(default=None),
     db: Session = Depends(get_db),
     current: CurrentUser = Depends(get_current_user),
     embedder: EmbeddingService = Depends(get_embedding_service),
@@ -35,6 +38,9 @@ def upload_document(
         data=data,
         settings=settings,
         embedder=embedder,
+        access_level=access_level,
+        department=department,
+        allowed_roles=allowed_roles,
     )
 
 

@@ -9,7 +9,7 @@ Implementation follows the architecture in `ARCHITECTURE.md`. Each phase ends wi
 | 1 | Structure, configuration, Docker, health skeleton | Complete |
 | 2 | Database, authentication, tenants | Complete |
 | 3 | Document ingestion and embeddings | Complete |
-| 4 | Vector retrieval and permission filtering | Not started |
+| 4 | Vector retrieval and permission filtering | Complete |
 | 5 | RAG pipeline | Not started |
 | 6 | Semantic caching | Not started |
 | 7 | Cost-aware model routing | Not started |
@@ -81,6 +81,8 @@ Deliver:
 - SQL filters for tenant, access level, allowed roles, and department
 - configurable `top_k` and similarity threshold
 - tests that tenant B rows and unauthorized private rows are absent even when their vectors are nearest
+
+Delivered: `document_permissions` plus access columns on `document_chunks`, Alembic revision `0003_document_permissions`, and `POST /api/retrieval/search`. Upload accepts `access_level`, `department`, and `allowed_roles`. The default access level is `internal`. Search embeds the query, then applies tenant, role, department, `top_k`, and the similarity threshold in one query. A request can raise the threshold or lower `top_k`. It cannot widen either. Tests cover a nearer private chunk and a nearer other-tenant chunk, both of which stay out of the result.
 
 Exit criteria: the retrieval service returns only chunks the caller is allowed to read.
 

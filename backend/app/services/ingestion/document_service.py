@@ -6,9 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.models.document import Document, DocumentChunk
+from app.models.permission import DocumentPermission
 from app.repositories import document_repository
+from app.services.ingestion.permissions import ResolvedPermission, resolve_permission
 from app.schemas.auth import CurrentUser
-from app.schemas.document import DocumentDetail, DocumentSummary
+from app.schemas.document import DocumentDetail, DocumentPermissionResponse, DocumentSummary
 from app.services.exceptions import BadRequest, IngestionError, NotFound, PayloadTooLarge
 from app.services.ingestion.chunker import chunk_pages
 from app.services.ingestion.embedding_service import EmbeddingService
@@ -27,6 +29,9 @@ def ingest_document(
     data: bytes,
     settings: Settings,
     embedder: EmbeddingService,
+    access_level: str | None = None,
+    department: str | None = None,
+    allowed_roles: str | None = None,
 ) -> DocumentDetail:
     safe_name = Path(filename or "").name
     if not safe_name or safe_name in {".", ".."}:
@@ -52,6 +57,12 @@ def ingest_document(
                 f"of {EMBEDDING_VECTOR_DIMENSION}."
             )
 
+    permission = resolve_permission(
+        access_level=access_level,
+        department=department,
+        allowed_roles=allowed_roles,
+        uploader_role=current.role,
+    )
     stored_type = (content_type or "application/octet-stream").split(";", 1)[0].strip().lower()
     document = Document(
         tenant_id=current.tenant_id,
@@ -63,6 +74,16 @@ def ingest_document(
     try:
         document_repository.add(db, document)
         db.flush()
+        document_repository.add_permission(
+            db,
+            DocumentPermission(
+                document_id=document.id,
+                tenant_id=current.tenant_id,
+                department=permission.department,
+                access_level=permission.access_level,
+                allowed_roles=permission.allowed_roles,
+            ),
+        )
         for chunk, vector in zip(chunks, vectors, strict=True):
             document_repository.add_chunk(
                 db,
@@ -73,7 +94,10 @@ def ingest_document(
                     content=chunk.content,
                     page_number=chunk.page_number,
                     embedding=vector,
-                    chunk_metadata={"filename": safe_name, "content_type": document.content_type},
+                    access_level=permission.access_level,
+                    department=permission.department,
+                    allowed_roles=list(permission.allowed_roles),
+                    chunk_metadata=_chunk_metadata(safe_name, document.content_type, permission),
                 ),
             )
         db.commit()
@@ -112,6 +136,18 @@ def delete_document(db: Session, current: CurrentUser, document_id: uuid.UUID) -
     logger.info("deleted document id=%s tenant_id=%s", document_id, current.tenant_id)
 
 
+def _chunk_metadata(filename: str, content_type: str, permission: ResolvedPermission) -> dict[str, str]:
+    metadata = {
+        "filename": filename,
+        "content_type": content_type,
+        "access_level": permission.access_level.value,
+        "allowed_roles": ",".join(permission.allowed_roles),
+    }
+    if permission.department:
+        metadata["department"] = permission.department
+    return metadata
+
+
 def _summary(document: Document, chunk_count: int) -> DocumentSummary:
     return DocumentSummary(
         id=document.id,
@@ -129,8 +165,16 @@ def _summary(document: Document, chunk_count: int) -> DocumentSummary:
 def _detail(db: Session, document: Document) -> DocumentDetail:
     chunks = document_repository.list_chunks(db, document.id, document.tenant_id)
     summary = _summary(document, len(chunks))
+    permission = document_repository.get_permission(db, document.id)
+    if permission is None:
+        raise IngestionError("Document was stored without access metadata.")
     return DocumentDetail(
         **summary.model_dump(),
+        permission=DocumentPermissionResponse(
+            access_level=permission.access_level.value,
+            department=permission.department,
+            allowed_roles=list(permission.allowed_roles),
+        ),
         chunks=[
             {
                 "id": chunk.id,
