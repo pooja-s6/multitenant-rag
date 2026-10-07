@@ -167,6 +167,19 @@ def test_wrong_embedding_width_is_rejected_before_save(client: TestClient) -> No
     assert client.get("/api/documents", headers={"Authorization": f"Bearer {token}"}).json() == []
 
 
+def test_real_embedder_rejects_a_vector_with_the_wrong_width() -> None:
+    from app.services.ingestion.embedding_service import SentenceTransformerEmbeddingService
+
+    class _ShortModel:
+        def encode(self, texts: list[str], **_: object) -> list[list[float]]:
+            return [[0.0, 1.0, 2.0] for _ in texts]
+
+    service = SentenceTransformerEmbeddingService("sentence-transformers/all-MiniLM-L6-v2", 384)
+    service._model = _ShortModel()
+    with pytest.raises(IngestionError):
+        service.embed(["annual leave"])
+
+
 def test_embedding_service_rejects_a_dimension_that_does_not_match_the_column(monkeypatch) -> None:
     monkeypatch.setenv("EMBEDDING_DIMENSION", "128")
     from app.config import get_settings

@@ -71,6 +71,14 @@ class DeterministicEmbeddingService:
         return vectors
 
 
+def _require_dimension(vectors: list[list[float]], dimension: int) -> None:
+    for vector in vectors:
+        if len(vector) != dimension:
+            raise IngestionError(
+                f"Model returned {len(vector)} dimensions, but EMBEDDING_DIMENSION is {dimension}."
+            )
+
+
 _cached: SentenceTransformerEmbeddingService | None = None
 
 
