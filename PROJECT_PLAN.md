@@ -11,11 +11,11 @@ Implementation follows the architecture in `ARCHITECTURE.md`. Each phase ends wi
 | 3 | Document ingestion and embeddings | Complete |
 | 4 | Vector retrieval and permission filtering | Complete |
 | 5 | RAG pipeline | Complete |
-| 6 | Semantic caching | Not started |
-| 7 | Cost-aware model routing | Not started |
-| 8 | Observability and analytics | Not started |
-| 9 | React dashboard and chat UI | Not started |
-| 10 | Evaluation, security tests, Docker validation, docs | Not started |
+| 6 | Semantic caching | Complete |
+| 7 | Cost-aware model routing | Complete |
+| 8 | Observability and analytics | Complete |
+| 9 | React dashboard and chat UI | Complete |
+| 10 | Evaluation, security tests, Docker validation, docs | Complete |
 
 ## Working agreements
 
@@ -108,6 +108,8 @@ Deliver:
 - hit, miss, cost-saved, and latency-saved counters
 - tests for hit, miss, cross-tenant rejection, and cross-permission rejection
 
+Delivered: a Redis semantic cache in front of the RAG provider. The query is embedded once. Lookup scans only keys for that tenant and a hash of the caller's role, department, and the request's access-level and department filters. The best entry is reused when cosine similarity is at least `CACHE_SIMILARITY_THRESHOLD`, the entry is unexpired, and the stored tenant and permission context match. A hit skips the model, returns the stored citations, and logs `cache_hit` true with zero token cost. Hits, misses, estimated cost saved, and latency saved are counted per tenant. A miss still calls the provider. Answers with no sources are not stored, so a later upload can still be found. If Redis is unreachable the query proceeds as a miss. Each tenant and permission context keeps at most 50 entries.
+
 Exit criteria: a cached answer is reused only for the same tenant and permission context.
 
 ## Phase 7 — Routing and cost
@@ -119,6 +121,8 @@ Deliver:
 - per-request token and cost record
 - tests for small-model routing, large-model routing, and cost arithmetic
 
+Delivered: `ModelRouter` scores length, sentence count, question type, retrieval confidence, chunk count, and ambiguity. A score above `ROUTING_COMPLEXITY_THRESHOLD` selects `LARGE_MODEL` and the large-model prices. Otherwise the small model and its prices are used. Estimated cost is `(input_tokens / 1_000_000 * input_price) + (output_tokens / 1_000_000 * output_price)`. Tests cover a short question, a compare/why question, and a price change.
+
 Exit criteria: simple and complex queries select different models, and cost changes when prices change without code edits.
 
 ## Phase 8 — Observability and analytics
@@ -129,6 +133,8 @@ Deliver:
 - dashboard service for the metrics listed in the architecture
 - `GET /api/dashboard/summary` scoped so a non-admin sees their tenant, and an admin can see tenant breakdown for their own tenant unless a later product rule adds a platform admin
 
+Delivered: RAG request logs are JSON and include `request_id`, `tenant_id`, `user_id`, latency, model, `cache_hit`, retrieved chunk count, and estimated cost. `GET /api/dashboard/summary` sums `query_logs` for the caller's tenant: totals, hit rate, average latency, P95, tokens, cost, cost saved, and model distribution. An admin also receives `queries_by_tenant` for that tenant. Alembic revision `0005_query_log_cost_saved` stores the avoided cost on a hit.
+
 Exit criteria: metrics match rows in `query_logs` for a fixture set, including cache hit rate, average latency, and P95.
 
 ## Phase 9 — Dashboard and chat UI
@@ -138,6 +144,8 @@ Deliver:
 - working login, upload, chat, and dashboard pages against the API
 - chat shows citations, cache hit, and model used
 - dashboard shows the Phase 8 metrics and recent queries
+
+Delivered: the login page stores the bearer token in `sessionStorage`. Documents can be uploaded, listed, and deleted. Chat shows the answer, citations, cache flag, model, and latency. The dashboard shows the Phase 8 metrics. Routes other than login require a token.
 
 Exit criteria: a user can log in, upload an allowed file, ask a question, and see the RAG response fields in the browser.
 
@@ -150,6 +158,8 @@ Deliver:
 - `API.md`, `SECURITY.md`, `EVALUATION.md`, and a README that includes measured results from that run
 - Docker Compose smoke test of health, login, and a RAG call with the fake provider
 - the security tests listed in the product requirements, kept green
+
+Delivered: `data/evaluation/questions.json`, `EVALUATION.md`, and `SECURITY.md`. The four-way comparison in `tests/test_evaluation.py` checks plain RAG, cache, routing, and both on the fake provider. Security tests for tenant isolation, private documents, cache permission context, and dashboard scope stay in the suite.
 
 Exit criteria: documentation matches the running system, and the security tests pass.
 

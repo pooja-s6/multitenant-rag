@@ -1,0 +1,14 @@
+[
+  {
+    "id": "leave-allowance",
+    "query": "Employees receive 20 working days of annual leave each year.",
+    "expected_model": "small",
+    "note": "Short factual question. The test asks the stored sentence so the deterministic embedder retrieves it."
+  },
+  {
+    "id": "compare-access",
+    "query": "Why compare the Engineering leave policy versus the Sales security policy, and explain the difference between private access and public access?",
+    "expected_model": "large",
+    "note": "Compare/why wording scores above ROUTING_COMPLEXITY_THRESHOLD."
+  }
+]

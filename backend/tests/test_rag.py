@@ -9,6 +9,8 @@ from app.config import Settings, get_settings
 from app.database import SessionLocal
 from app.models.query_log import QueryLog
 from app.services.exceptions import BadGateway, BadRequest
+from app.services.cache.semantic_cache import SemanticCache, get_semantic_cache
+from app.services.cache.store import MemoryCacheStore
 from app.services.ingestion.embedding_service import DeterministicEmbeddingService, get_embedding_service
 from app.services.rag.providers import (
     FakeLLMProvider,
@@ -24,8 +26,10 @@ SECRET = "The private salary band is 90000."
 
 def _use_fakes(client: TestClient) -> None:
     settings = get_settings()
+    cache = SemanticCache(MemoryCacheStore(), settings)
     client.app.dependency_overrides[get_embedding_service] = lambda: DeterministicEmbeddingService()
     client.app.dependency_overrides[get_llm_provider] = lambda: FakeLLMProvider(settings.small_model)
+    client.app.dependency_overrides[get_semantic_cache] = lambda: cache
 
 
 def _admin_and_user(client: TestClient) -> tuple[str, str]:

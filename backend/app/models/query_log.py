@@ -33,6 +33,7 @@ class QueryLog(Base):
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False)
     estimated_cost: Mapped[float] = mapped_column(Numeric(12, 6), nullable=False)
+    cost_saved: Mapped[float] = mapped_column(Numeric(12, 6), nullable=False, server_default="0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

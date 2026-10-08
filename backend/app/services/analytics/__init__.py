@@ -1,1 +1,1 @@
-"""Query metrics for the dashboard. Implemented in phase 8."""
+"""Tenant-scoped aggregates over query logs."""

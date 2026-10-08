@@ -6,6 +6,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.schemas.auth import CurrentUser
 from app.schemas.rag import RagQueryRequest, RagQueryResponse
+from app.services.cache.semantic_cache import SemanticCache, get_semantic_cache
 from app.services.ingestion.embedding_service import EmbeddingService, get_embedding_service
 from app.services.rag import pipeline
 from app.services.rag.providers import LLMProvider, get_llm_provider
@@ -21,6 +22,7 @@ def query(
     current: CurrentUser = Depends(get_current_user),
     embedder: EmbeddingService = Depends(get_embedding_service),
     provider: LLMProvider = Depends(get_llm_provider),
+    cache: SemanticCache | None = Depends(get_semantic_cache),
 ) -> RagQueryResponse:
     request_id = getattr(request.state, "request_id", None) or request.headers.get("x-request-id")
     if not request_id:
@@ -33,6 +35,7 @@ def query(
         settings=get_settings(),
         embedder=embedder,
         provider=provider,
+        cache=cache,
         top_k=body.top_k,
         similarity_threshold=body.similarity_threshold,
         department=body.department,

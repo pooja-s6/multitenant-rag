@@ -122,8 +122,7 @@ Request and response details are in [API.md](API.md).
 | `GET`, `DELETE` | `/api/documents/{document_id}` | Read or delete one document. Other tenants get `404` |
 | `POST` | `/api/retrieval/search` | Nearest chunks the caller is allowed to read |
 | `POST` | `/api/rag/query` | Answer, sources, model, cache flag, latency, and request id |
-| `POST` | `/api/rag/query` | `501` |
-| `GET` | `/api/dashboard/summary` | `501` |
+| `GET` | `/api/dashboard/summary` | Tenant query totals, cache hit rate, latency, and cost |
 
 Interactive docs: http://localhost:8000/docs
 
@@ -139,7 +138,7 @@ pytest
 
 The suite expects the Compose Postgres at `localhost:5432` (user `rag`, password `rag`). It creates a `rag_test` database and runs migrations there. Set `TEST_DATABASE_URL` if that server is elsewhere. On this workstation, run pytest inside Ubuntu WSL so it reaches the Compose database rather than another Postgres on the Windows host.
 
-Auth tests cover login, invalid credentials, expired and tampered tokens, protected routes, role checks, and tenant isolation. Document tests upload the fictional files in `data/sample_documents/` and check extraction, chunking, embedding width, persistence, and tenant isolation. Retrieval tests check that a nearer chunk from another tenant, a private document, or another department is absent. RAG tests check citations, the query log, `cache_hit` false, and that private or other-tenant text is absent from the answer. Cache boundaries and routing tests arrive with those phases.
+Auth tests cover login, invalid credentials, expired and tampered tokens, protected routes, role checks, and tenant isolation. Document tests upload the fictional files in `data/sample_documents/` and check extraction, chunking, embedding width, persistence, and tenant isolation. Retrieval tests check that a nearer chunk from another tenant, a private document, or another department is absent. RAG tests check citations, the query log, and that private or other-tenant text is absent from the answer. Cache tests check a hit, a miss, and that another tenant or another permission context does not reuse the stored answer. Routing tests check the small model, the large model, and that a price change changes the estimated cost. Dashboard tests check that totals match the caller's query log and exclude another tenant. The four-way comparison is in `tests/test_evaluation.py`.
 
 Frontend production bundle:
 
@@ -150,15 +149,19 @@ npm run build
 
 ## Evaluation
 
-An evaluation set and the four-way comparison (plain RAG, cache, routing, cache plus routing) are Phase 10. This repository does not report quality, hit rate, latency, or cost numbers yet.
+The comparison in [EVALUATION.md](EVALUATION.md) uses the fake provider and the deterministic test embedder. A repeated factual question stays on the small model and is then a cache hit. A compare/why question uses the large model and is then a cache hit. The fake provider echoes the top chunk, so the run does not score answer quality against a human rubric.
+
+## Web app
+
+`npm run dev` in `frontend/` serves the login, document, chat, and dashboard pages. The token is kept in `sessionStorage` for the browser tab. Sign-in, upload, chat, and the dashboard all call the API.
 
 ## Limitations
 
-- The React login page does not store the token yet. Sign-in and uploads work through the API.
-- Answers use the fake provider when `LLM_API_KEY` is empty. The cache flag is always false until semantic caching is added.
+- Answers use the fake provider when `LLM_API_KEY` is empty. A repeated question is served from Redis only for the same tenant and permission context.
 - The API image installs the embedding model libraries. The model file is downloaded on the first upload.
 - Readiness depends on the configured Postgres and Redis endpoints.
+- There is no platform-admin role. An admin sees a tenant breakdown only for their own tenant.
 
 ## Further work
 
-Phases 6 through 10 in `PROJECT_PLAN.md`: semantic caching, cost-aware routing, metrics, the interactive UI, and evaluation.
+The ten phases in `PROJECT_PLAN.md` are implemented. A later change could add a Redis vector index for large caches, a platform admin, or a quality rubric against a live model.

@@ -105,7 +105,9 @@ def test_me_rejects_expired_and_tampered_tokens(client: TestClient) -> None:
     assert expired_response.status_code == 401
 
     token = _login(client, "admin@acme.example")
-    tampered = token[:-1] + ("a" if token[-1] != "a" else "b")
+    header, payload, signature = token.split(".")
+    flipped = ("A" if signature[0] != "A" else "B") + signature[1:]
+    tampered = ".".join((header, payload, flipped))
     tampered_response = client.get("/api/auth/me", headers={"Authorization": f"Bearer {tampered}"})
     assert tampered_response.status_code == 401
 

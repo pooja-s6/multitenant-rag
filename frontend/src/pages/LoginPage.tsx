@@ -1,12 +1,18 @@
 import { type FormEvent, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
 
-import { login } from "../api/client";
+import { ApiError, login, readToken, storeToken } from "../api/client";
 
 export function LoginPage() {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  if (readToken()) {
+    return <Navigate to="/chat" replace />;
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -14,21 +20,20 @@ export function LoginPage() {
     setMessage(null);
     try {
       const result = await login(email, password);
-      setMessage(`${result.status}: ${result.detail}`);
-    } catch {
-      setMessage("The API did not respond.");
+      storeToken(result.access_token);
+      navigate("/chat", { replace: true });
+    } catch (error) {
+      setMessage(error instanceof ApiError ? error.message : "The API did not respond.");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <section className="mx-auto max-w-md">
+    <section className="mx-auto max-w-md px-5 py-16">
       <h2 className="text-2xl font-semibold">Sign in</h2>
       <p className="mt-2 text-sm leading-6 text-ink/70">
-        Accounts belong to one tenant. After sign-in, the API resolves your user, tenant, and
-        role from a JWT. Password hashing and token issue are added in the next phase; this form
-        already calls the login route.
+        Your token stays in this browser tab. Questions and documents stay inside your tenant.
       </p>
       <form onSubmit={onSubmit} className="mt-6 space-y-4 rounded-lg border border-line bg-card p-5">
         <label className="block text-sm">
@@ -36,6 +41,7 @@ export function LoginPage() {
           <input
             type="email"
             required
+            autoComplete="username"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2"
@@ -46,6 +52,7 @@ export function LoginPage() {
           <input
             type="password"
             required
+            autoComplete="current-password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2"
@@ -58,7 +65,7 @@ export function LoginPage() {
         >
           {submitting ? "Signing in…" : "Sign in"}
         </button>
-        {message ? <p className="text-sm text-ink/80">{message}</p> : null}
+        {message ? <p className="text-sm text-red-800">{message}</p> : null}
       </form>
     </section>
   );

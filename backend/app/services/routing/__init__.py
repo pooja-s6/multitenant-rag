@@ -1,1 +1,1 @@
-"""Cost-aware model routing. Implemented in phase 7."""
+"""Cost-aware model routing."""

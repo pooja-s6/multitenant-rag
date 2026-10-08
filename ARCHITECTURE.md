@@ -299,4 +299,4 @@ Phase 1 is infrastructure and a walking skeleton:
 - React shell with login, upload, chat, and dashboard routes
 - Docker Compose for frontend, backend, Postgres with the `vector` extension created on first database init, and Redis
 
-Authentication, document ingestion, permission-aware retrieval, and the RAG query endpoint are implemented. Caching, routing, metrics, and evaluation are specified here and implemented in the phases that follow. `query_logs` exists from Alembic revision `0004_query_logs`. Semantic cache writes are not done yet, so `cache_hit` is false.
+Authentication, document ingestion, permission-aware retrieval, the RAG query endpoint, the semantic cache, model routing, the dashboard summary, and the React pages are implemented. `query_logs` includes cost saved from Alembic revision `0005_query_log_cost_saved`. `cache_hit` is true only when an unexpired entry matches the tenant, the permission context, and `CACHE_SIMILARITY_THRESHOLD`. Redis errors are treated as misses. Answers with no sources are not stored. A score above `ROUTING_COMPLEXITY_THRESHOLD` selects `LARGE_MODEL`. Dashboard totals are limited to the caller's tenant.

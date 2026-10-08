@@ -18,7 +18,14 @@ class LLMResult:
 
 
 class LLMProvider(Protocol):
-    def complete(self, *, system: str, user: str, chunks: list[RetrievedChunk]) -> LLMResult:
+    def complete(
+        self,
+        *,
+        system: str,
+        user: str,
+        chunks: list[RetrievedChunk],
+        model: str | None = None,
+    ) -> LLMResult:
         """Return an answer grounded in the retrieved chunks."""
 
 
@@ -28,7 +35,14 @@ class FakeLLMProvider:
     def __init__(self, model_name: str) -> None:
         self.model_name = model_name
 
-    def complete(self, *, system: str, user: str, chunks: list[RetrievedChunk]) -> LLMResult:
+    def complete(
+        self,
+        *,
+        system: str,
+        user: str,
+        chunks: list[RetrievedChunk],
+        model: str | None = None,
+    ) -> LLMResult:
         if not chunks:
             answer = "I could not find that in the documents you can access."
         else:
@@ -36,14 +50,14 @@ class FakeLLMProvider:
             answer = f"Based on {top.filename}: {top.content}"
         return LLMResult(
             answer=answer,
-            model=self.model_name,
+            model=model or self.model_name,
             input_tokens=_token_count(system) + _token_count(user),
             output_tokens=_token_count(answer),
         )
 
 
 class OpenAICompatibleProvider:
-    """Calls a chat-completions endpoint. The model is the configured small model."""
+    """Calls a chat-completions endpoint. The caller chooses the model name."""
 
     def __init__(self, *, model_name: str, api_key: str, base_url: str, timeout_seconds: float = 60) -> None:
         self.model_name = model_name
@@ -51,10 +65,18 @@ class OpenAICompatibleProvider:
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
 
-    def complete(self, *, system: str, user: str, chunks: list[RetrievedChunk]) -> LLMResult:
+    def complete(
+        self,
+        *,
+        system: str,
+        user: str,
+        chunks: list[RetrievedChunk],
+        model: str | None = None,
+    ) -> LLMResult:
         del chunks
+        chosen = model or self.model_name
         payload = {
-            "model": self.model_name,
+            "model": chosen,
             "temperature": 0,
             "messages": [
                 {"role": "system", "content": system},
@@ -80,7 +102,7 @@ class OpenAICompatibleProvider:
             usage = body.get("usage") or {}
             return LLMResult(
                 answer=answer or "I could not find that in the documents you can access.",
-                model=str(body.get("model") or self.model_name),
+                model=str(body.get("model") or chosen),
                 input_tokens=int(usage.get("prompt_tokens") or 0),
                 output_tokens=int(usage.get("completion_tokens") or 0),
             )

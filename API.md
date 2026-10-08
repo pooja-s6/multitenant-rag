@@ -104,19 +104,19 @@ The response is `{ "chunks": [ ... ] }`. Each chunk has `chunk_id`, `document_id
 
 `POST /api/rag/query` requires a bearer token. The body has `query` and may include the same narrowing fields as search: `top_k`, `similarity_threshold`, `department`, and `access_level`.
 
-The handler retrieves allowed chunks, ranks them by similarity, and asks the language-model provider. `LLM_PROVIDER=openai` with `LLM_API_KEY` set calls `LLM_BASE_URL` using `SMALL_MODEL`. An empty key uses the local fake provider, which answers from the retrieved excerpt. The response has:
+The handler retrieves allowed chunks, ranks them by similarity, and asks the language-model provider. A cache miss scores the question from its length, sentence count, question type, retrieval confidence, chunk count, and ambiguity. A score above `ROUTING_COMPLEXITY_THRESHOLD` uses `LARGE_MODEL` and the large-model prices. A lower score uses `SMALL_MODEL` and the small-model prices. `LLM_PROVIDER=openai` with `LLM_API_KEY` set calls `LLM_BASE_URL` with the chosen model. An empty key uses the local fake provider, which answers from the retrieved excerpt. The response has:
 
 - `answer`
 - `sources` (document id, chunk id, filename, page number, score, excerpt)
 - `model_used`
-- `cache_hit` (always `false` until semantic caching)
+- `cache_hit` (`true` only when a cached answer is reused)
 - `latency` (milliseconds)
 - `request_id`
 
-A completed query is stored in `query_logs` for that tenant, including token counts and an estimated cost from the small-model prices. Private documents and other tenants' documents are not retrieved, so they do not appear in the answer or the sources.
+A completed query is stored in `query_logs` for that tenant, including token counts, the estimated cost of the model that ran, and `cost_saved` when a later hit reuses that answer. Private documents and other tenants' documents are not retrieved, so they do not appear in the answer or the sources.
 
-## Not implemented yet
+Before calling the model, the handler looks for a cached answer. A hit requires the same tenant, the same role and department, the same `department` and `access_level` filters, a cosine similarity of at least `CACHE_SIMILARITY_THRESHOLD`, and an entry that has not passed `CACHE_TTL`. The stored citations are returned and the model is not called. Another tenant, another role, or a different filter is a miss. Answers with no sources are not cached. If Redis cannot be reached, the request is a miss and the query still completes.
 
-This route exists and returns `501`:
+## Dashboard
 
-- `GET /api/dashboard/summary`
+`GET /api/dashboard/summary` requires a bearer token. Every count is limited to the caller's tenant. The body includes total queries, cache hits, cache misses, hit rate, average latency, P95 latency, input tokens, output tokens, estimated cost, estimated cost saved, and model distribution. Those figures are summed from `query_logs`. An `ADMIN` also receives `queries_by_tenant` for that same tenant. A non-admin receives `queries_by_tenant: null`. Another tenant's rows are never included.

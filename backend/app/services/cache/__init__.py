@@ -1,1 +1,1 @@
-"""Semantic response cache. Implemented in phase 6."""
+"""Semantic response cache scoped by tenant and permission context."""

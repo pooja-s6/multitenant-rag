@@ -35,6 +35,7 @@ def search(
     similarity_threshold: float | None = None,
     department: str | None = None,
     access_level: str | None = None,
+    query_embedding: list[float] | None = None,
 ) -> list[RetrievedChunk]:
     """Return chunks the caller may read, nearest first.
 
@@ -48,11 +49,14 @@ def search(
     level = _parse_level(access_level)
     narrowed_department = _clean_department(department)
 
-    vectors = embedder.embed([text])
-    if len(vectors) != 1 or len(vectors[0]) != EMBEDDING_VECTOR_DIMENSION:
-        width = len(vectors[0]) if vectors else 0
+    if query_embedding is None:
+        vectors = embedder.embed([text])
+        if len(vectors) != 1:
+            raise IngestionError("Embedding service returned an unexpected number of vectors.")
+        query_embedding = vectors[0]
+    if len(query_embedding) != EMBEDDING_VECTOR_DIMENSION:
         raise IngestionError(
-            f"Query embedding length {width} does not match the stored width "
+            f"Query embedding length {len(query_embedding)} does not match the stored width "
             f"of {EMBEDDING_VECTOR_DIMENSION}."
         )
 
@@ -61,7 +65,7 @@ def search(
         tenant_id=current.tenant_id,
         role=current.role,
         caller_department=current.department,
-        query_embedding=vectors[0],
+        query_embedding=query_embedding,
         limit=limit,
         minimum_similarity=threshold,
         department=narrowed_department,
